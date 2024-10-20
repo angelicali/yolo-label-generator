@@ -1,9 +1,7 @@
 import cv2
 import imagehash
 from PIL import Image
-import glob
 from pathlib import Path
-from ultralytics import YOLOWorld
 import json
 
 # Frame filtering
@@ -38,25 +36,62 @@ def filter_frames(input_filepath:Path, output_dir:Path):
     cap.release()
 
 # Image labeling
-def label_images(model, image_dir):
-    labels = {}
+def label_images(model, image_dir, output_dir=None):
     image_dir = Path(image_dir)
     for filepath in sorted(image_dir.glob('*.jpg')):
-        image_id = filepath.stem
         image = cv2.imread(filepath)
         if image is None:
             print(f"cannot read image from {filepath}")
             continue
         results = model(image)[0]
-        labels[image_id] = json.loads(results.to_json())
-    return labels
+        if output_dir:
+            output_img_path = output_dir / filepath.name
+            cv2.imwrite(output_img_path, results.plot())
+            detections = json.loads(results.to_json())
+            print(detections)
+            if len(detections) != 0:
+                output_txt_path = output_dir / (filepath.stem + '.txt')
+                with output_txt_path.open('w') as f:
+                    f.write(results_to_label(detections))
+            yield filepath.name
+
+# Label conversion
+def results_to_label(detections):
+    s = []
+    for d in detections:
+        s.append(detection_label(d))
+    return '\n'.join(s)
+        
+def detection_label(d):
+    object_name = d['name']
+    box = d['box']
+    centerx, centery, width, height = convert_box(box)
+    label_idx = 0 # TODO
+    label = f"{label_idx} {centerx} {centery} {width} {height}"
+    return label
+
+
+def convert_box(box):
+    img_width = 640
+    img_height = 480
+    x1, y1, x2, y2 = box['x1'], box['y1'], box['x2'], box['y2']
+    centerx = (x1+x2)/2 / img_width 
+    centery = (y1+y2)/2 / img_height
+    width = (x2-x1) / img_width
+    height = (y2-y1) / img_height
+    return (centerx, centery, width, height)
+
+
 
 # For testing
 if __name__ == "__main__":
     # input_video = "./test_files/20241007055556.mp4"
     # output_dir = "./test_files"
     # filter_frames(input_video, output_dir)
-    img_dir = "../../../modeling/training_data/"
+    from ultralytics import YOLOWorld
+
+    img_dir = "../../modeling/training_data/"
     model = YOLOWorld("yolov8x-worldv2.pt")
     model.set_classes(["raccoon"])
-    label_images(model, img_dir)
+    for label in label_images(model, img_dir):
+        print(label)
