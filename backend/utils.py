@@ -36,7 +36,7 @@ def filter_frames(input_filepath:Path, output_dir:Path):
     cap.release()
 
 # Image labeling
-def label_images(model, image_dir, output_dir=None):
+def label_images(model, image_dir, objects, output_dir=None):
     image_dir = Path(image_dir)
     for filepath in sorted(image_dir.glob('*.jpg')):
         image = cv2.imread(filepath)
@@ -52,22 +52,21 @@ def label_images(model, image_dir, output_dir=None):
             if len(detections) != 0:
                 output_txt_path = output_dir / (filepath.stem + '.txt')
                 with output_txt_path.open('w') as f:
-                    f.write(results_to_label(detections))
+                    f.write(results_to_label(detections, objects))
             yield filepath.name
 
 # Label conversion
-def results_to_label(detections):
+def results_to_label(detections, objects):
     s = []
     for d in detections:
-        s.append(detection_label(d))
+        s.append(detection_label(d, objects))
     return '\n'.join(s)
         
-def detection_label(d):
-    object_name = d['name']
+def detection_label(d, objects):
+    class_id = objects[d['name']]
     box = d['box']
     centerx, centery, width, height = convert_box(box)
-    label_idx = 0 # TODO
-    label = f"{label_idx} {centerx} {centery} {width} {height}"
+    label = f"{class_id} {centerx} {centery} {width} {height}"
     return label
 
 

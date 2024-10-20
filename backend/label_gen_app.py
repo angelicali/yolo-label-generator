@@ -11,6 +11,8 @@ import utils
 import asyncio
 from ultralytics import YOLOWorld
 import json
+import zipfile
+import io
 # import redis
 
 app = FastAPI()
@@ -81,6 +83,10 @@ def _get_videopath(task_id):
     video_dir = DATA_DIR / task_id / UPLOAD_DIR
     return next(video_dir.iterdir())
 
+def _get_videoid(task_id):
+    videopath = _get_videopath(task_id)
+    print(videopath.stem)
+    return videopath.stem
 async def process_frames(input_filepath, output_dir):
     for filename in utils.filter_frames(input_filepath, output_dir):
         yield f"data: {filename}\n\n"
@@ -123,20 +129,51 @@ async def request_labeling(task_id: str, objects: Annotated[str, Form(...)]):
     task_objects[task_id] = objects
     return {'objects': objects}
 
-async def label_frames(model, img_dir, output_dir):
-    for filename in utils.label_images(model, img_dir, output_dir):
+async def label_frames(model, img_dir, objects, output_dir):
+    for filename in utils.label_images(model, img_dir, objects, output_dir):
         yield f"data: {filename}\n\n"
         await asyncio.sleep(0.1)
 
 @app.get("/stream-labeled-frames/{task_id}")
 async def stream_labeled_frames(task_id: str):
     model = YOLOWorld("yolov8x-worldv2.pt")
-    model.set_classes(task_objects[task_id])
+    model.set_classes(list(task_objects[task_id].keys()))
     img_dir = DATA_DIR / task_id / FRAME_DIR
     output_dir = DATA_DIR / task_id / LABELED_FRAME_DIR
     output_dir.mkdir(exist_ok=True)
-    return StreamingResponse(label_frames(model, img_dir, output_dir), media_type="text/event-stream")
+    return StreamingResponse(label_frames(model, img_dir, task_objects[task_id], output_dir), media_type="text/event-stream")
     
+
+@app.post("/download/{task_id}")
+async def download(task_id: str, frames: List[str]):
+    # Create an in-memory file-like object
+    zip_buffer = io.BytesIO()
+
+    # Create a ZIP file in memory
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        for frame in frames:
+            frame = Path(frame)
+            img_path = DATA_DIR / task_id / FRAME_DIR / frame
+            label_path = DATA_DIR / task_id / LABELED_FRAME_DIR / (frame.stem + '.txt')
+            if not img_path.exists():
+                print(f"WARNING: img path does not exist: {img_path}")
+                continue
+
+            zip_file.write(str(img_path), arcname=f'images/{frame}')
+            if label_path.exists():
+                zip_file.write(str(label_path), arcname=f'labels/{label_path.name}')
+            
+
+    # Set the buffer's position to the beginning
+    zip_buffer.seek(0)
+
+    # Return the zip file with Content-Disposition to keep the original filename
+    headers = {
+        'Content-Disposition': f'attachment; filename="{_get_videoid(task_id)}_labels.zip"',
+        'Access-Control-Expose-Headers': 'Content-Disposition'
+    }
+
+    return Response(content=zip_buffer.getvalue(), media_type="application/zip", headers=headers)
 
 # @app.post("/label-frame/{task_id}")
 # async def label_frames(objects: Annotated[str, Form(...)], frames: ):

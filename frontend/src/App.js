@@ -34,6 +34,7 @@ function App() {
     setObjects(event.target.value);
   }
 
+  // Label frames
   const requestLabeling = async () => {
     const formData = new FormData();
     formData.append('objects', objects);
@@ -59,6 +60,55 @@ function App() {
     }
   }
 
+  // Select labeled frames
+  const [frameSelections, setFrameSelections] = useState({});
+
+  const updateFrameSelection = (frameFilename, isChecked) => {
+    if (isChecked) {
+      setFrameSelections({
+        ...frameSelections,
+        [frameFilename]: isChecked
+      })
+    }
+  }
+
+  const requestDownload = () => {
+    let selectedFrames = [];
+    for (const frame of frameFilenames) {
+      if (frame in frameSelections && !frameSelections[frame]) {
+        continue;
+      }
+      selectedFrames.push(frame);
+    }
+    console.log(JSON.stringify(selectedFrames));
+
+    // Make a POST request with the selected frames
+    axios.post(`http://localhost:8000/download/${serverTaskId}`, selectedFrames, {
+      responseType: 'blob',  // Ensure we handle the binary zip file response
+      withCredentials: true,
+    })
+      .then(response => {
+        console.log(response);
+        // Create a link to download the zip file
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = contentDisposition
+            ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+            : `${serverTaskId}_labels.zip`;
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);  // Clean up the object URL
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+  };
+
   return (
     <div style={{ textAlign: 'center', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
       <h1>Auto-labeling from video </h1>
@@ -74,7 +124,8 @@ function App() {
       )}
       {labeledFrameFilenames.length > 0 && (
         <>
-          <VideoFrames serverTaskId={serverTaskId} frameFilenames={labeledFrameFilenames} isLabeled/>
+          <VideoFrames serverTaskId={serverTaskId} frameFilenames={labeledFrameFilenames} isLabeled updateFrameSelection={updateFrameSelection} />
+          <Button variant='contained' onClick={requestDownload}>Download training data</Button>
         </>
       )}
     </div>
