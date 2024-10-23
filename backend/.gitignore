@@ -1,4 +1,5 @@
 data
+app/data
 __pycache__
 test_files
 yolo*.pt

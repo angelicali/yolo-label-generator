@@ -3,10 +3,10 @@ from typing import Annotated, List
 from fastapi import FastAPI, File, UploadFile, Cookie, Depends, Response, HTTPException, BackgroundTasks, Form
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-# import os
 from pathlib import Path
 import shutil
 import uuid
+# import app.utils as utils
 import utils
 import asyncio
 from ultralytics import YOLOWorld
@@ -16,6 +16,7 @@ import io
 # import redis
 
 app = FastAPI()
+
 # redis_client = redis.Redis(decode_responses=True) # The same as:  redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 task_objects = {}
 
@@ -136,7 +137,7 @@ async def label_frames(model, img_dir, objects, output_dir):
 
 @app.get("/stream-labeled-frames/{task_id}")
 async def stream_labeled_frames(task_id: str):
-    model = YOLOWorld("yolov8x-worldv2.pt")
+    model = YOLOWorld("model/yolov8x-worldv2.pt")
     model.set_classes(list(task_objects[task_id].keys()))
     img_dir = DATA_DIR / task_id / FRAME_DIR
     output_dir = DATA_DIR / task_id / LABELED_FRAME_DIR

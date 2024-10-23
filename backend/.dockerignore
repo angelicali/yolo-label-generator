@@ -1,0 +1,4 @@
+__pycache__
+.gitignore
+test_files/
+data/
