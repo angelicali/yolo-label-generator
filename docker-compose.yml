@@ -1,10 +1,12 @@
 services:
   frontend:
     build: ./frontend
+    image: angelicali/my-private-repo:odlg-frontend
     ports:
       - "3000:80"
 
   backend:
     build: ./backend
+    image: angelicali/my-private-repo:odlg-backend
     ports:
       - "8000:8000"
