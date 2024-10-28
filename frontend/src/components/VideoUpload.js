@@ -45,7 +45,7 @@ export default function VideoUpload({onServerTaskIdReceipt}) {
                 {videoUrl && (
                     <>
                         <ReactPlayer url={videoUrl} playing controls />
-                        <Button variant="contained" type="submit">Upload Video</Button>
+                        <Button variant="contained" type="submit" sx={{marginTop: 3}}>Upload Video</Button>
                     </>
                 )}
             </form>

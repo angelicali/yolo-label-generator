@@ -53,7 +53,7 @@ def label_images(model, image_dir, objects, output_dir=None):
                 output_txt_path = output_dir / (filepath.stem + '.txt')
                 with output_txt_path.open('w') as f:
                     f.write(results_to_label(detections, objects))
-            yield filepath.name
+            yield filepath.name, len(detections) != 0
 
 # Label conversion
 def results_to_label(detections, objects):

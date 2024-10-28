@@ -131,8 +131,12 @@ async def request_labeling(task_id: str, objects: Annotated[str, Form(...)]):
     return {'objects': objects}
 
 async def label_frames(model, img_dir, objects, output_dir):
-    for filename in utils.label_images(model, img_dir, objects, output_dir):
-        yield f"data: {filename}\n\n"
+    for filename, has_detection in utils.label_images(model, img_dir, objects, output_dir):
+        data = {
+            "filename": filename,
+            "has_detection": has_detection
+        }
+        yield f"data: {json.dumps(data)}\n\n"
         await asyncio.sleep(0.1)
 
 @app.get("/stream-labeled-frames/{task_id}")
